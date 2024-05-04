@@ -1,68 +1,114 @@
-import argparse
-import btnWhisper
+import sys
 from btnWhisper import BtnWhisper
-import sounddevice as sd
-from openai import OpenAI
-from dotenv import load_dotenv
-import os
-
-
-def int_or_str(text):
-    """Helper function for argument parsing."""
-    try:
-        return int(text)
-    except ValueError:
-        return text
-
-
-parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument(
-    "-l",
-    "--list-devices",
-    action="store_true",
-    help="show list of audio devices and exit",
+from PyQt5.QtWidgets import (
+    QApplication,
+    QSystemTrayIcon,
+    QMenu,
+    QDialog,
+    QVBoxLayout,
+    QPushButton,
+    QLabel,
 )
-args, remaining = parser.parse_known_args()
-if args.list_devices:
-    # Return information about available devices.
-    print(sd.query_devices())
-    parser.exit(0)
-
-parser = argparse.ArgumentParser(
-    description=__doc__,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    parents=[parser],
-)
-parser.add_argument(
-    "-d", "--device", type=int_or_str, help="input device (numeric ID or substring)"
-)
-parser.add_argument("-r", "--samplerate", type=int, help="sampling rate")
-parser.add_argument(
-    "-c", "--channels", type=int, default=1, help="number of input channels"
-)
-parser.add_argument(
-    "-t", "--subtype", type=str, help='sound file subtype (e.g. "PCM_24")'
-)
-args = parser.parse_args(remaining)
+from PyQt5.QtGui import QIcon, QKeySequence
+from PyQt5.QtCore import Qt, QEvent, pyqtSignal, pyqtSlot
 
 
-try:
-    if args.samplerate is None:
-        device_info = sd.query_devices(args.device, "input")
-        # soundfile expects an int, sounddevice provides a float:
-        args.samplerate = int(device_info["default_samplerate"])
+class ModifyHotkeyDialog(QDialog):
+    emit_modified_hotkey = pyqtSignal(str)
 
-    print("Initializing...")
-    load_dotenv()
-    client = OpenAI()
-    btnWhisper = BtnWhisper(args, client)
-    btnWhisper.add_listener()
-    print("Start")
-    while True:
-        pass
+    def __init__(self):
+        super(ModifyHotkeyDialog, self).__init__()
+        self.key_sequence = QKeySequence()
+        self.setWindowTitle("Modify hotkey")
+        self.resize(200, 100)
+        self.init_ui()
+        self.grabKeyboard()
 
-except KeyboardInterrupt:
-    print("\nEnd")
-    parser.exit(0)
-except Exception as e:
-    parser.exit(type(e).__name__ + ": " + str(e))
+    def init_ui(self):
+        layout = QVBoxLayout()
+        self.label = QLabel("按鍵組合將顯示在這裡", self)
+        layout.addWidget(self.label)
+        confirm_button = QPushButton("Confirm", self)
+        confirm_button.clicked.connect(self.confirm)
+        global my_app
+        self.emit_modified_hotkey.connect(my_app.btnWhisper.set_recording_hotkey)
+        layout.addWidget(confirm_button)
+        self.setLayout(layout)
+
+    def confirm(self):
+        print("Confirming key sequence:", self.key_sequence.toString())
+        self.releaseKeyboard()
+        self.emit_modified_hotkey.emit(self.key_sequence.toString())
+        self.hide()
+
+    def keyPressEvent(self, event):
+        if event.type() == QEvent.KeyPress:
+            modifiers = event.modifiers()
+            ctrl = modifiers & Qt.ControlModifier
+            shift = modifiers & Qt.ShiftModifier
+            alt = modifiers & Qt.AltModifier
+            key = (
+                event.key()
+                if event.key() != Qt.Key_Control and event.key() != Qt.Key_Shift
+                else None
+            )
+
+            text = "{}{}{}{}{}{}{}".format(
+                "ctrl" if ctrl else "",
+                "+" if ctrl and (alt or shift or key) else "",
+                "alt" if alt else "",
+                "+" if alt and (shift or key) else "",
+                "shift" if shift else "",
+                "+" if shift and key else "",
+                chr(key).lower() if key and key <= 255 else "",
+            )
+            self.key_sequence = QKeySequence(text)
+            self.label.setText(text)
+
+    def closeEvent(self, event):
+        """Reimplement the close event to hide the window instead of closing it."""
+        event.ignore()
+        self.hide()
+
+
+class MySystemTrayIcon(QSystemTrayIcon):
+    def __init__(self, icon, parent=None):
+        super(MySystemTrayIcon, self).__init__(icon, parent)
+        self.setToolTip("Button Whisper")
+        self.menu = self.create_tray_menu()
+        self.setContextMenu(self.menu)
+
+    def create_tray_menu(self):
+
+        def open_modify_hotkey_dialog():
+            dialog = ModifyHotkeyDialog()
+            dialog.exec_()
+
+        menu = QMenu()
+        modify_hotkey_action = menu.addAction("Modify hotkey")
+        modify_hotkey_action.triggered.connect(open_modify_hotkey_dialog)
+        exit_action = menu.addAction("Exit")
+        exit_action.triggered.connect(QApplication.instance().quit)
+        return menu
+
+
+class MyApp:
+    def __init__(self):
+        print("Initializing...")
+        self.app = QApplication(sys.argv)
+        self.tray_icon = MySystemTrayIcon(QIcon("images/images.png"))
+        self.tray_icon.show()
+
+        self.btn_whisper = BtnWhisper()
+        print("Start")
+
+    def run(self):
+        self.app.exec_()
+
+    def quit(self):
+        self.app.quit()
+
+
+if __name__ == "__main__":
+    my_app = MyApp()
+    my_app.run()

@@ -1,5 +1,6 @@
 import queue
-import numpy  # Make sure NumPy is loaded before it is used in the callback
+from dotenv import load_dotenv
+from openai import OpenAI
 import keyboard
 import sys
 import soundfile as sf
@@ -7,23 +8,36 @@ import sounddevice as sd
 import tempfile
 import threading
 import os
+from PyQt5.QtWidgets import QApplication
 
 
 class BtnWhisper:
-    def __init__(self, args, client):
+    def __init__(self):
+        load_dotenv()
         self.is_recording = False
-        self.is_running = False
         self.q = queue.Queue()
-        self.args = args
-        self.sd_input_stream = None
         self.sound_file = None
         self.thread = None
-        self.client = client
+        self.client = OpenAI()
         self.filename = None
+        # Get samplerate of current device
+        self.device = None
+        device_info = sd.query_devices(self.device, "input")
+        self.samplerate = int(device_info["default_samplerate"])
+        self.channels = 1
+        self.sd_input_stream = sd.InputStream(
+            samplerate=self.samplerate,
+            device=self.device,
+            channels=self.channels,
+            callback=self.callback,
+            blocksize=8192,  # Use a bigger blocksize to reduce CPU load
+        )
+        self.recording_hotkey = "ctrl+alt+j"
+        self.add_listener()
 
     def process_data(self):
-        while self.is_running:
-            if self.is_recording and self.sound_file and not self.q.empty():
+        while self.is_recording:
+            if self.sound_file and not self.q.empty():
                 self.sound_file.write(self.q.get())
     
     def get_transcriptions(self, audio_file):
@@ -38,40 +52,25 @@ class BtnWhisper:
             temp_filename = temp_file.name
         return temp_filename
 
-    def start_recording(self):
-        if self.is_recording:
-            print("Already recording...")
-        else:
+    def record(self):
+        if not self.is_recording:
             self.filename = self.create_random_filename()
             self.is_recording = True
-            self.is_running = True
             self.sound_file = sf.SoundFile(
                 self.filename,
                 mode="x",
-                samplerate=self.args.samplerate,
-                channels=self.args.channels,
-                subtype=self.args.subtype,
+                samplerate=self.samplerate,
+                channels=self.channels,
+                subtype=None
             )
-            self.sd_input_stream = sd.InputStream(
-                samplerate=self.args.samplerate,
-                device=self.args.device,
-                channels=self.args.channels,
-                callback=self.callback,
-                blocksize=8192,  # Use a bigger blocksize to reduce CPU load
-            )
-            self.sd_input_stream.start()
             self.thread = threading.Thread(target=self.process_data)
+            self.sd_input_stream.start()
             self.thread.start()
             print("Start recording...")
-
-    def end_recording(self):
-        if not self.is_recording:
-            print("Not recording...")
         else:
             self.is_recording = False
 
             # End thread
-            self.is_running = False
             self.thread.join()
             self.thread = None
             while not self.q.empty():
@@ -80,16 +79,21 @@ class BtnWhisper:
             self.sound_file.close()
             self.sound_file = None
             self.sd_input_stream.stop()
-            self.sd_input_stream = None
             self.get_transcriptions(self.filename)
             print("End recording...")
 
     def add_listener(self):
-        keyboard.add_hotkey("ctrl+alt+j", self.start_recording)
-        keyboard.add_hotkey("ctrl+alt+m", self.end_recording)
+        keyboard.add_hotkey(self.recording_hotkey, self.record)
+        # keyboard.add_hotkey("Esc", QApplication.instance().quit)
+    
+    def set_recording_hotkey(self, hotkey):
+        self.recording_hotkey = hotkey
+        self.add_listener()
+        print("Hotkey has been set to: " + self.recording_hotkey)
 
     def callback(self, indata, frames, time, status):
         """This is called (from a separate thread) for each audio block."""
+        print("callback")
         if status:
             print(status, file=sys.stderr)
         self.q.put(indata.copy())
