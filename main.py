@@ -31,7 +31,7 @@ class ModifyHotkeyDialog(QDialog):
         confirm_button = QPushButton("Confirm", self)
         confirm_button.clicked.connect(self.confirm)
         global my_app
-        self.emit_modified_hotkey.connect(my_app.btnWhisper.set_recording_hotkey)
+        self.emit_modified_hotkey.connect(my_app.btn_whisper.set_recording_hotkey)
         layout.addWidget(confirm_button)
         self.setLayout(layout)
 
