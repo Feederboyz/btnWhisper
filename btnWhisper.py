@@ -44,9 +44,10 @@ class BtnWhisper:
     def get_transcriptions(self, audio_file):
         print("Transcribing...")
         audio_file = open(audio_file, "rb")
-        translation = self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-        print(translation.text)
-        return translation.text
+        transcription = self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+        print(transcription.text)
+        keyboard.write(transcription.text)
+        return transcription.text
 
     def create_random_filename(self):
         with tempfile.NamedTemporaryFile(prefix="delme_rec_unlimited_", suffix=".wav", delete=True) as temp_file:
