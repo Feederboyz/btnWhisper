@@ -1,4 +1,5 @@
 import queue
+import numpy  # Make sure NumPy is loaded for SPEED UP before it is used in the callback
 from dotenv import load_dotenv
 from openai import OpenAI
 import keyboard
@@ -93,7 +94,6 @@ class BtnWhisper:
 
     def callback(self, indata, frames, time, status):
         """This is called (from a separate thread) for each audio block."""
-        print("callback")
         if status:
             print(status, file=sys.stderr)
         self.q.put(indata.copy())
