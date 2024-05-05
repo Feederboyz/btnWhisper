@@ -103,7 +103,7 @@ class MyApp:
         print("Initializing...")
         self.btn_whisper = BtnWhisper()
         self.app = QApplication(sys.argv)
-        self.tray_icon = MySystemTrayIcon(self, QIcon("images/images.png"))
+        self.tray_icon = MySystemTrayIcon(self, QIcon("images/32x32.png"))
         print("Start")
 
     def run(self):
