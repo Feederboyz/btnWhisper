@@ -2,5 +2,5 @@
 __pycache__/
 build/
 dist/
-main.spec
+*.spec
 app_log.txt
