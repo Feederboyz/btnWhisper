@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from btnWhisper import BtnWhisper
 from PyQt5.QtWidgets import (
     QApplication,
@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal, pyqtSlot
+import logging
 
 
 class ModifyHotkeyDialog(QDialog):
@@ -103,7 +104,15 @@ class MyApp:
         print("Initializing...")
         self.btn_whisper = BtnWhisper()
         self.app = QApplication(sys.argv)
-        self.tray_icon = MySystemTrayIcon(self, QIcon("images/32x32.png"))
+
+        """ Get absolute path to resource, works for dev and for PyInstaller """
+        base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        icon_path = os.path.join(base_path, "images/32x32.png")
+        if not os.path.isfile(icon_path):
+            logging.error(f"Icon file not found: {icon_path}")
+            raise
+
+        self.tray_icon = MySystemTrayIcon(self, QIcon(icon_path))
         print("Start")
 
     def run(self):
@@ -113,6 +122,14 @@ class MyApp:
         self.app.quit()
 
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    filename="app_log.txt",
+    filemode="w",
+)
+logger = logging.getLogger()
 if __name__ == "__main__":
     my_app = MyApp()
     my_app.run()
