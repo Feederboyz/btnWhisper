@@ -1,6 +1,6 @@
 # environment.yml
 
-name: c:\Users\User\Desktop\btnWhisper\btnWhisper
+name: btnWhisper
 channels:
     - anaconda
     - conda-forge
