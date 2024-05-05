@@ -16,8 +16,9 @@ from PyQt5.QtCore import Qt, QEvent, pyqtSignal, pyqtSlot
 class ModifyHotkeyDialog(QDialog):
     emit_modified_hotkey = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, my_app):
         super(ModifyHotkeyDialog, self).__init__()
+        self.my_app = my_app
         self.key_sequence = QKeySequence()
         self.setWindowTitle("Modify hotkey")
         self.resize(200, 100)
@@ -30,8 +31,7 @@ class ModifyHotkeyDialog(QDialog):
         layout.addWidget(self.label)
         confirm_button = QPushButton("Confirm", self)
         confirm_button.clicked.connect(self.confirm)
-        global my_app
-        self.emit_modified_hotkey.connect(my_app.btn_whisper.set_recording_hotkey)
+        self.emit_modified_hotkey.connect(self.my_app.btn_whisper.set_recording_hotkey)
         layout.addWidget(confirm_button)
         self.setLayout(layout)
 
@@ -72,34 +72,38 @@ class ModifyHotkeyDialog(QDialog):
 
 
 class MySystemTrayIcon(QSystemTrayIcon):
-    def __init__(self, icon, parent=None):
+    def __init__(self, my_app, icon, parent=None):
         super(MySystemTrayIcon, self).__init__(icon, parent)
+        self.my_app = my_app
         self.setToolTip("Button Whisper")
         self.menu = self.create_tray_menu()
         self.setContextMenu(self.menu)
+        self.show()
 
     def create_tray_menu(self):
 
         def open_modify_hotkey_dialog():
-            dialog = ModifyHotkeyDialog()
+            dialog = ModifyHotkeyDialog(self.my_app)
             dialog.exec_()
 
         menu = QMenu()
         modify_hotkey_action = menu.addAction("Modify hotkey")
         modify_hotkey_action.triggered.connect(open_modify_hotkey_dialog)
         exit_action = menu.addAction("Exit")
-        exit_action.triggered.connect(QApplication.instance().quit)
+        exit_action.triggered.connect(self.quit_app)
         return menu
+
+    def quit_app(self):
+        self.my_app.btn_whisper.delete_sound_file()
+        self.my_app.quit()
 
 
 class MyApp:
     def __init__(self):
         print("Initializing...")
-        self.app = QApplication(sys.argv)
-        self.tray_icon = MySystemTrayIcon(QIcon("images/images.png"))
-        self.tray_icon.show()
-
         self.btn_whisper = BtnWhisper()
+        self.app = QApplication(sys.argv)
+        self.tray_icon = MySystemTrayIcon(self, QIcon("images/images.png"))
         print("Start")
 
     def run(self):

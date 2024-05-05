@@ -41,22 +41,22 @@ class BtnWhisper:
             if self.sound_file and not self.q.empty():
                 self.sound_file.write(self.q.get())
     
-    def get_transcriptions(self, audio_file):
+    def get_transcriptions(self, filename):
         print("Transcribing...")
-        audio_file = open(audio_file, "rb")
-        transcription = self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+        with open(filename, "rb") as f:
+            transcription = self.client.audio.transcriptions.create(model="whisper-1", file=f)
         print(transcription.text)
         keyboard.write(transcription.text)
         return transcription.text
 
-    def create_random_filename(self):
+    def get_random_filename(self):
         with tempfile.NamedTemporaryFile(prefix="delme_rec_unlimited_", suffix=".wav", delete=True) as temp_file:
             temp_filename = temp_file.name
         return temp_filename
 
     def record(self):
         if not self.is_recording:
-            self.filename = self.create_random_filename()
+            self.filename = self.get_random_filename()
             self.is_recording = True
             self.sound_file = sf.SoundFile(
                 self.filename,
@@ -77,12 +77,22 @@ class BtnWhisper:
             self.thread = None
             while not self.q.empty():
                 self.sound_file.write(self.q.get())
-
-            self.sound_file.close()
-            self.sound_file = None
             self.sd_input_stream.stop()
             self.get_transcriptions(self.filename)
+            self.delete_sound_file()
             print("End recording...")
+        
+    def delete_sound_file(self):
+        if self.filename:
+            self.is_recording = False
+            if self.thread:
+                self.thread.join()
+            if self.sound_file:
+                self.sound_file.close()
+                self.sound_file = None
+            os.remove(self.filename)
+            self.filename = None
+            print("Audio file has been deleted")
 
     def add_listener(self):
         keyboard.add_hotkey(self.recording_hotkey, self.record)
