@@ -94,4 +94,4 @@ dependencies:
     - pip:
           - keyboard==0.13.5
           - soundfile==0.12.1
-prefix: c:\Users\User\Desktop\btnWhisper\btnWhisper
+prefix: btnWhisper
