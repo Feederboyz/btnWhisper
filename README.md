@@ -1,7 +1,7 @@
 # BtnWhisper
 ![BtnWhisper Icon](images/128x128.png)
 
-按下組合鍵，將語音轉換為文字。
+還在手動輸入文字嗎?BtnWhisper 讓你使用語音替代打字。 
 
 ## Prerequisite
 
